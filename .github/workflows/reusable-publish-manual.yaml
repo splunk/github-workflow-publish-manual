@@ -19,13 +19,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: validate_branch
-        if: github.ref != 'refs/heads/develop' && github.ref != 'refs/heads/main'
+        if: github.ref != 'refs/heads/develop' && github.ref != 'refs/heads/main' || contains(github.ref, 'release')
         run: |
-          echo "Skipping publish as branch is neither main nor develop"
+          echo "Skipping publish as branch is neither main nor develop or release branch"
   build:
     needs:
       - validate_branch
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || contains(github.ref, 'release')
     name: build
     runs-on: ubuntu-latest
     steps:
@@ -114,7 +114,7 @@ jobs:
     needs:
       - build
       - validate_branch
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || contains(github.ref, 'release')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -128,19 +128,20 @@ jobs:
           submodules: false
           persist-credentials: false
       - name: Release on github
-        if: github.ref == 'refs/heads/main'
-        uses: "marvinpinto/action-automatic-releases@latest"
+        if:  github.event.inputs.pre_release == 'false'
+        uses: "softprops/action-gh-release@v2"
         with:
           repo_token: "${{ secrets.GH_TOKEN }}"
           prerelease: false
-          automatic_release_tag: v${{ github.event.inputs.tag }}
+          tag_name: v${{ github.event.inputs.tag }}
+
       - name: Release on github (pre-release)
-        if: github.ref == 'refs/heads/develop'
-        uses: "marvinpinto/action-automatic-releases@latest"
+        if: github.event.inputs.pre_release == 'true'
+        uses: "softprops/action-gh-release@v2"
         with:
-          repo_token: "${{ secrets.GH_TOKEN }}"
+          token: "${{ secrets.GH_TOKEN }}"
           prerelease: true
-          automatic_release_tag: v${{ github.event.inputs.tag }}
+          tag_name: v${{ github.event.inputs.tag }}
       - name: Download package-deployment
         uses: actions/download-artifact@v4
         id: download-package-deployment
